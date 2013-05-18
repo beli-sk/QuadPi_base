@@ -42,7 +42,7 @@ class BaseComm(object):
         self.tele = (0, 0, 0, 0)
 
     def transmit(self):
-        s = self.controls = struct.pack('<bbbb',
+        s = self.controls = struct.pack('<hhhh',
                 self.controls[0],
                 self.controls[1],
                 self.controls[2],
@@ -50,11 +50,11 @@ class BaseComm(object):
                 )
         self.sock.sendall(s)
 
-    #def contact(self):
-    #    self.sock.connect(self.addr)
-    #    self.sock.sendall('Quad/Pi P1\n')
-    #    s = self.sock.recv(3)
-    #    if s != 'OK\n':
-    #        raise ProtocolError('Handshake fail')
-    #    self.sock.setblocking(0)
+    def contact(self):
+        self.sock.connect(self.addr)
+        self.sock.sendall('Quad/Pi P1\n')
+        s = self.sock.recv(3)
+        if s != 'OK\n':
+            raise ProtocolError('Handshake fail')
+        self.sock.setblocking(0)
 
