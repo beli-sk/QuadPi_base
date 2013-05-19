@@ -1,0 +1,13 @@
+Quad/Pi notes
+=============
+
+Configuration
+-------------
+
+ >     <
+M1     M2
+  \ | /
+    O 
+  /   \
+M3     M4
+ >     <

@@ -94,7 +94,7 @@ while not done:
     if controls_changed:
         axisX = joy.get_axis(0)*1000
         axisY = joy.get_axis(1)*1000
-        axisZ = joy.get_axis(2)*1000
+        axisZ = -joy.get_axis(2)*1000
         thr = (-joy.get_axis(3)+1)*1000/2
         screen.lock()
         g1.set_value((
@@ -115,7 +115,7 @@ while not done:
         motors[i].set_value(comm.motors[i])
     
     pygame.display.flip()
-    clock.tick(25)
+    clock.tick(50)
 
 pygame.quit()
 

@@ -69,7 +69,6 @@ class BaseComm(object):
                     print "Short packet received"
                 else:
                     self.motors = struct.unpack('<hhhh', s)
-                    print self.motors
             else:
                 sys.stdout.write('unknown byte (%d)\n' % ord(c))
 
