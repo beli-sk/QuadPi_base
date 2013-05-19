@@ -21,133 +21,18 @@
 
 import sys
 import pygame
+from basecomm import BaseComm
+from guicontrols import *
 
-BLACK    = (   0,   0,   0)
-WHITE    = ( 255, 255, 255)
-SILVER   = ( 192, 192, 192)
-GRAY     = ( 127, 127, 127)
-RED      = ( 255,   0,   0)
-GREEN    = (   0, 255,   0)
-BLUE     = (   0,   0, 255)
+GAIN = (1, 0.2, 0.2, 0.2) # thr, x, y, z
 
-class TextPrint:
-    def __init__(self):
-        self.reset()
-        self.font = pygame.font.Font(None, 20)
-
-    def write(self, screen, textString):
-        textBitmap = self.font.render(textString, True, BLACK)
-        screen.blit(textBitmap, [self.x, self.y])
-        self.y += self.line_height
-        
-    def reset(self):
-        self.x = 10
-        self.y = 10
-        self.line_height = 15
-        
-    def indent(self):
-        self.x += 10
-        
-    def unindent(self):
-        self.x -= 10
-
-class Slide:
-    H = 0
-    V = 1
-    def __init__(self, screen, rect, orient = 0, value=0):
-        self.screen = screen
-        self.rect = rect
-        self.inrect = rect.inflate(-2, -2)
-        self.orient = orient
-        self.value = value
-        self.redraw()
-
-    def set_value(self, value):
-        self.value = value
-        self.redraw()
-
-    def redraw(self):
-        pygame.draw.rect(self.screen, BLACK, self.rect, 1)
-        pygame.draw.rect(self.screen, SILVER, self.inrect, 0)
-        if self.orient == self.H:
-            x = int(round(float(self.inrect.width-1) / 1000.0 * float(self.value)))
-            pygame.draw.line(self.screen, WHITE,
-                    (self.inrect.left + x, self.inrect.top),
-                    (self.inrect.left + x, self.inrect.top + self.inrect.height-1),
-                    )
-        else:
-            y = int(round(float(self.inrect.height-1) / 1000.0 * float(self.value)))
-            pygame.draw.line(self.screen, WHITE,
-                    (self.inrect.left, self.inrect.top + y),
-                    (self.inrect.left + self.inrect.width-1, self.inrect.top + y),
-                    )
-
-class Slide2D:
-    def __init__(self, screen, rect, value=(0,0)):
-        self.screen = screen
-        self.rect = rect
-        self.inrect = rect.inflate(-2, -2)
-        self.value = value
-        self.redraw()
-
-    def set_value(self, value):
-        self.value = value
-        self.redraw()
-
-    def redraw(self):
-        x = int(round(float(self.inrect.width-1) / 1000.0 * float(self.value[0])))
-        y = int(round(float(self.inrect.height-1) / 1000.0 * float(self.value[1])))
-        pygame.draw.rect(self.screen, BLACK, self.rect, 1)
-        pygame.draw.rect(self.screen, SILVER, self.inrect, 0)
-        pygame.draw.line(self.screen, WHITE,
-                (self.inrect.left, self.inrect.top + y),
-                (self.inrect.left + self.inrect.width-1, self.inrect.top + y),
-                )
-        pygame.draw.line(self.screen, WHITE,
-                (self.inrect.left + x, self.inrect.top),
-                (self.inrect.left + x, self.inrect.top + self.inrect.height-1),
-                )
-
-class Gauge:
-    H = 0
-    V = 1
-
-    def __init__(self, screen, rect, orient=0, flip=False, value=0):
-        self.screen = screen
-        self.rect = rect
-        self.inrect = rect.inflate(-2, -2)
-        self.orient = orient
-        self.flip = flip
-        self.value = value
-        self.redraw()
-
-    def set_value(self, value):
-        self.value = value
-        self.redraw()
-
-    def redraw(self):
-        if self.orient == self.H:
-            fillsize = int(float(self.inrect.width) / 1000.0 * float(self.value))
-            fillrect = pygame.Rect(
-                    self.inrect.left + self.inrect.width - fillsize if self.flip
-                        else self.inrect.left,
-                    self.inrect.top,
-                    fillsize,
-                    self.inrect.height
-                    )
-        else:
-            fillsize = int(float(self.inrect.height) / 1000.0 * float(self.value))
-            fillrect = pygame.Rect(
-                    self.inrect.left,
-                    self.inrect.top if self.flip
-                        else self.inrect.top + self.inrect.height - fillsize,
-                    self.inrect.width,
-                    fillsize
-                    )
-
-        pygame.draw.rect(self.screen, BLACK, self.rect, 1)
-        pygame.draw.rect(self.screen, SILVER, self.inrect, 0)
-        pygame.draw.rect(self.screen, GRAY, fillrect, 0)
+def apply_gain(c):
+    return (
+            int(round(c[0] * GAIN[0])),
+            int(round(c[1] * GAIN[1])),
+            int(round(c[2] * GAIN[2])),
+            int(round(c[3] * GAIN[3])),
+            )
 
 pygame.init()
 
@@ -170,38 +55,67 @@ joy = pygame.joystick.Joystick(0)
 joy.init()
 print 'Using joystick %s with %d axes, %d buttons, %d hats and %d balls.' % (joy.get_name(), joy.get_numaxes(), joy.get_numbuttons(), joy.get_numhats(), joy.get_numballs())
 
+screen.fill(cBG)
+
 g1 = Slide2D(screen, pygame.Rect(10, 10, 100, 100))
 g2 = Slide(screen, pygame.Rect(10, 115, 100, 20))
 g3 = Slide(screen, pygame.Rect(115, 10, 20, 100), orient=Slide.V)
 
-screen.fill(WHITE)
+motors = [
+    Gauge(screen, pygame.Rect(10, 140, 20, 100), orient=Gauge.V),
+    Gauge(screen, pygame.Rect(35, 140, 20, 100), orient=Gauge.V),
+    Gauge(screen, pygame.Rect(60, 140, 20, 100), orient=Gauge.V),
+    Gauge(screen, pygame.Rect(85, 140, 20, 100), orient=Gauge.V),
+    ]
+engine = False
+
+b1 = Bulb(screen, pygame.Rect(115, 115, 20, 20), {False: RED, True: GREEN}, value=0)
 
 controls_changed = True
 
+comm = BaseComm()
+comm.contact()
+
 while not done:
+    comm.receive()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-        if event.type in (pygame.JOYAXISMOTION,):
+        if event.type == pygame.JOYAXISMOTION:
             controls_changed = True
-    #screen.fill(WHITE)
+        if event.type == pygame.JOYBUTTONDOWN:
+            if joy.get_button(10):
+                engine = False
+                controls_changed = True
+            elif joy.get_button(11):
+                engine = True
+                controls_changed = True
 
     if controls_changed:
-        print "cc"
-        axisX = joy.get_axis(0)
-        axisY = joy.get_axis(1)
-        axisZ = joy.get_axis(2)
-        thr = joy.get_axis(3)
+        axisX = joy.get_axis(0)*1000
+        axisY = joy.get_axis(1)*1000
+        axisZ = joy.get_axis(2)*1000
+        thr = (-joy.get_axis(3)+1)*1000/2
+        screen.lock()
         g1.set_value((
-                ((axisX + 1) * 1000 / 2),
-                ((axisY + 1) * 1000 / 2),
+                ((axisX + 1000) / 2),
+                ((axisY + 1000) / 2),
                 ))
-        g2.set_value((axisZ + 1) * 1000 / 2)
-        g3.set_value((thr + 1) * 1000 / 2)
+        g2.set_value((axisZ + 1000) / 2)
+        g3.set_value(thr)
+        b1.set_value(engine)
+        screen.unlock()
         controls_changed = False
+
+        xthr = thr+1 if engine else 0
+        comm.controls = apply_gain((xthr, axisX, axisY, axisZ))
+        comm.transmit()
+
+    for i in range(len(motors)):
+        motors[i].set_value(comm.motors[i])
     
     pygame.display.flip()
-    clock.tick(20)
+    clock.tick(25)
 
 pygame.quit()
 

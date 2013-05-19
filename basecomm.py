@@ -18,43 +18,82 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see http://www.gnu.org/licenses/.
 #
-
+import sys
+import time
 import socket
 import struct
-
-class CommError(Exception):
-    pass
-class ProtocolError(CommError):
-    pass
+from cStringIO import StringIO
 
 class BaseComm(object):
+    class CommError(Exception):
+        pass
+    class ProtocolError(CommError):
+        pass
+
     DEBUG = 1
     INFO = 2
     WARN = 3
     ERR = 4
     prio = {1: 'DEBUG', 2: 'INFO', 3: 'WARN', 4: 'ERR'}
-    addr = ('127.0.0.1', 31512)
+    addr = ('192.168.2.19', 31512)
 
     def __init__(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        #self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.controls = (0, 0, 0, 0)
-        self.tele = (0, 0, 0, 0)
+        self.gyro = (0, 0, 0)
+        self.angles = (0, 0, 0)
+        self.motors = (0, 0, 0, 0)
+        self.state = 0
 
     def transmit(self):
-        s = self.controls = struct.pack('<hhhh',
+        s = 'C'
+        s += struct.pack('<hhhh',
                 self.controls[0],
                 self.controls[1],
                 self.controls[2],
                 self.controls[3]
                 )
-        self.sock.sendall(s)
+        self.sock.send(s)
+
+    def _parse_packets(self, data):
+        sio = StringIO(data)
+        while True:
+            c = sio.read(1)
+            if len(c) == 0:
+                break
+            if c == 'M':
+                # motor power
+                s = sio.read(8)
+                if len(s) != 8:
+                    print "Short packet received"
+                else:
+                    self.motors = struct.unpack('<hhhh', s)
+                    print self.motors
+            else:
+                sys.stdout.write('unknown byte (%d)\n' % ord(c))
+
+    def receive(self):
+        done = False
+        s = ''
+        while not done:
+            try:
+                ss = self.sock.recv(4096)
+                if len(ss) == 0:
+                    done = True
+                else:
+                    s += ss
+            except socket.error as e:
+                if e[0] == 11: # Resource temporarily unavailable
+                    done = True
+                else:
+                    raise
+        if len(s) > 0:
+            self._parse_packets(s)
 
     def contact(self):
         self.sock.connect(self.addr)
-        self.sock.sendall('Quad/Pi P1\n')
-        s = self.sock.recv(3)
-        if s != 'OK\n':
-            raise ProtocolError('Handshake fail')
         self.sock.setblocking(0)
+        self.sock.send('P1')
+        self.state = 1
 
